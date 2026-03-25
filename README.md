@@ -9,9 +9,12 @@ This project designs a modern Lakehouse-based analytics platform to unify all da
 
 ## 🧰 Tech Stack
 
-- **Azure Databricks** → Distributed processing using Spark & Delta Lake for scalable ETL pipelines
-- **Microsoft Fabric** → Unified analytics layer for Lakehouse, Warehouse, and BI integration
-- **Azure Data Lake Storage (ADLS)** → Centralized raw and curated data storage
+- **Azure Databricks** → Distributed processing using Spark & Delta Lake for scalable ETL pipelines.
+Chosen over Microsoft Fabric Spark for heavy transformation workloads due to better control over cluster configuration, fine-tuned performance optimization, and mature support for large-scale distributed processing patterns such as complex joins, incremental pipelines, and streaming + batch unification in a single engine
+- **Microsoft Fabric** → Unified analytics layer for Lakehouse, Warehouse, and BI integration.
+Used primarily for semantic modeling, governance, and tight integration with Power BI rather than heavy transformation workloads
+- **Azure Data Lake Storage (ADLS)** → Centralized storage for all data layers (Raw, Curated).
+Acts as the single source of truth with structured separation between immutable ingestion data (Raw Zone) and processed, analytics-ready datasets (Curated Zone).
 - **Apache Airflow** → Workflow orchestration, scheduling, and pipeline monitoring
 - **Docker** → Simulation of APIs and event-driven data sources
 - **Power BI** → Business intelligence dashboards and reporting
