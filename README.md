@@ -60,7 +60,7 @@ Handles:
 ---
 
 ## 🎯 Goal
-To build a production-grade, scalable, and modular data platform that demonstrates enterprise-level Data Engineering capabilities suitable for FAANG interviews.
+To provide a unified retail data platform that enables a single source of truth for customer, inventory, and sales data across all channels, delivering real-time visibility and consistent analytics for operational and strategic decision-making.
 
 ---
 
