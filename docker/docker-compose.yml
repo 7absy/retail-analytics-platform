@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+
+  airflow:
+    build:
+      context: ./airflow
+    container_name: airflow
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW_UID=${AIRFLOW_UID}
+    restart: on-failure
+    networks:
+      - platform-network
+
+  api-simulator:
+    build:
+      context: ./api-simulator
+    container_name: api-simulator
+    ports:
+      - "${API_PORT}:8000"
+    restart: on-failure
+    networks:
+      - platform-network
+
+  event-generator:
+    build:
+      context: ./event-generator
+    container_name: event-generator
+    ports:
+      - "${EVENT_GENERATOR_PORT}:9000"
+    restart: on-failure
+    networks:
+      - platform-network
+
+networks:
+  platform-network:
+    driver: bridge
