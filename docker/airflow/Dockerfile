@@ -1,10 +1,7 @@
-FROM apache/airflow:2.8.4
+FROM apache/airflow:2.8.4-python3.10
 
-USER root
+USER airflow
 
-# Copy requirements first (layer caching)
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
-
-USER airflow
