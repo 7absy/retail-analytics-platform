@@ -5,7 +5,7 @@ import os
 import sys
 
 # Add project root to path
-sys.path.insert(0, "/app")
+sys.path.insert(0, "/opt/airflow/pipelines")
 
 from generators import (
     customer_master,

@@ -30,18 +30,9 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      AIRFLOW__CORE__FERNET_KEY: "CHANGE_ME_FERNET_KEY"
+      AIRFLOW__CORE__FERNET_KEY: "L3Q54bqfXspiz05pxj71XSYyQOzEc6QgHcMDlOM6bnU="
     entrypoint: >
-      bash -c "
-      airflow db migrate &&
-      airflow users create \
-        --username admin \
-        --firstname admin \
-        --lastname user \
-        --role Admin \
-        --email admin@example.com \
-        --password admin || true
-      "
+      bash -c "airflow db init && airflow users create --username admin --firstname admin --lastname user --role Admin --email admin@example.com --password admin"
     networks:
       - platform-network
 
@@ -58,13 +49,14 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      AIRFLOW__CORE__FERNET_KEY: "CHANGE_ME_FERNET_KEY"
+      AIRFLOW__CORE__FERNET_KEY: "L3Q54bqfXspiz05pxj71XSYyQOzEc6QgHcMDlOM6bnU="
     ports:
       - "8080:8080"
     command: webserver
     restart: on-failure
     volumes:
-      - ./pipelines/dags:/opt/airflow/dags
+      - ../pipelines/dags:/opt/airflow/dags
+      - ../pipelines:/opt/airflow/pipelines
     networks:
       - platform-network
 
@@ -81,14 +73,44 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      AIRFLOW__CORE__FERNET_KEY: "CHANGE_ME_FERNET_KEY"
-    command: scheduler
+      AIRFLOW__CORE__FERNET_KEY: "L3Q54bqfXspiz05pxj71XSYyQOzEc6QgHcMDlOM6bnU="
+    command: scheduler  
     restart: on-failure
     volumes:
-      - ./pipelines/dags:/opt/airflow/dags
+      - ../pipelines/dags:/opt/airflow/dags
+      - ../pipelines:/opt/airflow/pipelines
     networks:
       - platform-network
+  api-simulator:
+      build:
+        context: ./api-simulator
+      container_name: api-simulator
+      ports:
+        - "${API_PORT:-8000}:8000"
+      restart: on-failure
+      networks:
+        - platform-network
 
+  event-generator:
+      build:
+        context: ./event-generator
+      container_name: event-generator
+      ports:
+        - "${EVENT_GENERATOR_PORT:-9000}:9000"
+      restart: on-failure
+      networks:
+        - platform-network
+
+  batch-generator:
+      build:
+        context: ./batch-generator
+      container_name: batch-generator
+      environment:
+        - OUTPUT_BASE=/app/data/batch
+      volumes:
+        - ../data/batch:/app/data/batch
+      networks:
+        - platform-network
 networks:
   platform-network:
 
