@@ -13,10 +13,12 @@ __pycache__/
 
 # OS files
 .DS_Store
-
+data/batch/
+data/events/
 # Virtual environment
 venv/
 env/
 
 # Logs
-*.log
+*.logdata/batch/
+data/events/

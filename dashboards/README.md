@@ -1,7 +1,1 @@
-# Power BI Dashboards
-
-This folder contains:
-- Executive KPI dashboards
-- Sales performance reports
-- Customer analytics views
-- Inventory optimization dashboards
+# Dashboards\nPower BI reports are published to Microsoft Fabric workspace. Export .pbix files here for version control.

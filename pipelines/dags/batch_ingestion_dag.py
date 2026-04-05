@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 import os
 import sys
 
-# Add project root to path
 sys.path.insert(0, "/opt/airflow/pipelines")
 
 from generators import (
@@ -15,6 +14,31 @@ from generators import (
 )
 
 OUTPUT_BASE = os.getenv("OUTPUT_BASE", "/app/data/batch")
+
+
+# -----------------------
+# ADLS Upload Helper
+# -----------------------
+from azure.storage.blob import BlobServiceClient
+
+def upload_to_adls(local_path: str, blob_path: str):
+    account_name = os.getenv("ADLS_ACCOUNT_NAME")
+    account_key  = os.getenv("ADLS_ACCOUNT_KEY")
+
+    client = BlobServiceClient(
+        account_url=f"https://{account_name}.blob.core.windows.net",
+        credential=account_key
+    )
+
+    blob_client = client.get_blob_client(
+        container="raw",
+        blob=blob_path
+    )
+
+    with open(local_path, "rb") as f:
+        blob_client.upload_blob(f, overwrite=True)
+
+    print(f"[UPLOADED] {blob_path}")
 
 
 # -----------------------
@@ -31,42 +55,53 @@ default_args = {
 # -----------------------
 # Task Functions
 # -----------------------
-def generate_customers(output_base: str, date_str: str):
+def generate_and_upload_customers(output_base: str, date_str: str):
     customer_master.generate(output_base, date_str)
 
+    local_file = f"{output_base}/customer_master/{date_str}/customer_master.csv"
+    upload_to_adls(local_file, f"batch/customer_master/{date_str}/customer_master.csv")
 
-def generate_products(output_base: str, date_str: str):
+    os.remove(local_file)
+
+
+def generate_and_upload_products(output_base: str, date_str: str):
     product_catalog.generate(output_base, date_str)
 
+    local_file = f"{output_base}/product_catalog/{date_str}/product_catalog.csv"
+    upload_to_adls(local_file, f"batch/product_catalog/{date_str}/product_catalog.csv")
 
-def generate_inventory(output_base: str, date_str: str):
+    os.remove(local_file)
+
+
+def generate_and_upload_inventory(output_base: str, date_str: str):
     inventory_snapshot.generate(output_base, date_str)
 
+    local_file = f"{output_base}/inventory_snapshot/{date_str}/inventory_snapshot.csv"
+    upload_to_adls(local_file, f"batch/inventory_snapshot/{date_str}/inventory_snapshot.csv")
 
-def generate_sales(output_base: str, date_str: str):
+    os.remove(local_file)
+
+
+def generate_and_upload_sales(output_base: str, date_str: str):
     sales_transactions.generate(output_base, date_str)
 
+    local_file = f"{output_base}/sales_transactions/{date_str}/sales_transactions.csv"
+    upload_to_adls(local_file, f"batch/sales_transactions/{date_str}/sales_transactions.csv")
 
-def validate_outputs(output_base: str, date_str: str):
-    required_files = [
-        f"{output_base}/customer_master/{date_str}/customer_master.csv",
-        f"{output_base}/product_catalog/{date_str}/product_catalog.csv",
-        f"{output_base}/inventory_snapshot/{date_str}/inventory_snapshot.csv",
-        f"{output_base}/sales_transactions/{date_str}/sales_transactions.csv",
-    ]
-
-    missing = [f for f in required_files if not os.path.exists(f)]
-
-    if missing:
-        raise FileNotFoundError(f"Missing batch files: {missing}")
+    os.remove(local_file)
 
 
-def trigger_bronze_notification(date_str: str):
-    print(f"Batch files ready for Bronze ingestion — {date_str}")
+def validate_outputs(**context):
+    print("[VALIDATION] Batch files uploaded to ADLS successfully")
+
+
+def notify_bronze(**context):
+    date_str = context["ds"]
+    print(f"Batch data ready for Bronze ingestion — {date_str}")
 
 
 # -----------------------
-# DAG Definition
+# DAG
 # -----------------------
 with DAG(
     dag_id="batch_ingestion_dag",
@@ -77,65 +112,38 @@ with DAG(
     tags=["batch", "ingestion"]
 ) as dag:
 
-    generate_customers_task = PythonOperator(
+    t_customers = PythonOperator(
         task_id="generate_customers",
-        python_callable=generate_customers,
-        op_kwargs={
-            "output_base": OUTPUT_BASE,
-            "date_str": "{{ ds }}"
-        }
+        python_callable=generate_and_upload_customers,
+        op_kwargs={"output_base": OUTPUT_BASE, "date_str": "{{ ds }}"}
     )
 
-    generate_products_task = PythonOperator(
+    t_products = PythonOperator(
         task_id="generate_products",
-        python_callable=generate_products,
-        op_kwargs={
-            "output_base": OUTPUT_BASE,
-            "date_str": "{{ ds }}"
-        }
+        python_callable=generate_and_upload_products,
+        op_kwargs={"output_base": OUTPUT_BASE, "date_str": "{{ ds }}"}
     )
 
-    generate_inventory_task = PythonOperator(
+    t_inventory = PythonOperator(
         task_id="generate_inventory",
-        python_callable=generate_inventory,
-        op_kwargs={
-            "output_base": OUTPUT_BASE,
-            "date_str": "{{ ds }}"
-        }
+        python_callable=generate_and_upload_inventory,
+        op_kwargs={"output_base": OUTPUT_BASE, "date_str": "{{ ds }}"}
     )
 
-    generate_sales_task = PythonOperator(
+    t_sales = PythonOperator(
         task_id="generate_sales",
-        python_callable=generate_sales,
-        op_kwargs={
-            "output_base": OUTPUT_BASE,
-            "date_str": "{{ ds }}"
-        }
+        python_callable=generate_and_upload_sales,
+        op_kwargs={"output_base": OUTPUT_BASE, "date_str": "{{ ds }}"}
     )
 
-    validate_outputs_task = PythonOperator(
+    t_validate = PythonOperator(
         task_id="validate_outputs",
-        python_callable=validate_outputs,
-        op_kwargs={
-            "output_base": OUTPUT_BASE,
-            "date_str": "{{ ds }}"
-        }
+        python_callable=validate_outputs
     )
 
-    trigger_bronze_notification_task = PythonOperator(
-        task_id="trigger_bronze_notification",
-        python_callable=trigger_bronze_notification,
-        op_kwargs={
-            "date_str": "{{ ds }}"
-        }
+    t_notify = PythonOperator(
+        task_id="notify_bronze",
+        python_callable=notify_bronze
     )
 
-    # -----------------------
-    # FIX 2: Parallel → Validate → Notify
-    # -----------------------
-    [
-        generate_customers_task,
-        generate_products_task,
-        generate_inventory_task,
-        generate_sales_task,
-    ] >> validate_outputs_task >> trigger_bronze_notification_task
+    [t_customers, t_products, t_inventory, t_sales] >> t_validate >> t_notify

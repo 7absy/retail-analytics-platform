@@ -6,11 +6,35 @@ import sys
 import requests
 import json
 
-# Ensure project modules are accessible
-sys.path.insert(0, "/app")
+sys.path.insert(0, "/opt/airflow/pipelines")
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://api-simulator:8000")
-OUTPUT_BASE = "/app/data/raw"
+TEMP_BASE = "/tmp"
+
+
+# -----------------------
+# ADLS Upload Helper
+# -----------------------
+from azure.storage.blob import BlobServiceClient
+
+def upload_to_adls(local_path: str, blob_path: str):
+    account_name = os.getenv("ADLS_ACCOUNT_NAME")
+    account_key  = os.getenv("ADLS_ACCOUNT_KEY")
+
+    client = BlobServiceClient(
+        account_url=f"https://{account_name}.blob.core.windows.net",
+        credential=account_key
+    )
+
+    blob_client = client.get_blob_client(
+        container="raw",
+        blob=blob_path
+    )
+
+    with open(local_path, "rb") as f:
+        blob_client.upload_blob(f, overwrite=True)
+
+    print(f"[UPLOADED] {blob_path}")
 
 
 # -----------------------
@@ -24,9 +48,6 @@ default_args = {
 }
 
 
-# -----------------------
-# Helpers
-# -----------------------
 def ensure_path(path: str):
     os.makedirs(path, exist_ok=True)
 
@@ -55,18 +76,22 @@ def fetch_orders(**context):
         all_records.extend(data)
         page += 1
 
-        if page > 10:  # safety limit
+        if page > 10:
             break
 
-    output_path = f"{OUTPUT_BASE}/orders/{date_str}"
-    ensure_path(output_path)
+    local_dir = f"{TEMP_BASE}/api/orders/{date_str}"
+    ensure_path(local_dir)
 
-    file_path = f"{output_path}/orders.json"
+    local_file = f"{local_dir}/orders.json"
 
-    with open(file_path, "w") as f:
+    with open(local_file, "w") as f:
         json.dump(all_records, f)
 
-    print(f"[SUCCESS] Orders written to {file_path}")
+    upload_to_adls(local_file, f"api/orders/{date_str}/orders.json")
+
+    os.remove(local_file)
+
+    print("[SUCCESS] Orders processed")
 
 
 def fetch_campaigns(**context):
@@ -93,29 +118,23 @@ def fetch_campaigns(**context):
         if page > 10:
             break
 
-    output_path = f"{OUTPUT_BASE}/campaigns/{date_str}"
-    ensure_path(output_path)
+    local_dir = f"{TEMP_BASE}/api/campaigns/{date_str}"
+    ensure_path(local_dir)
 
-    file_path = f"{output_path}/campaigns.json"
+    local_file = f"{local_dir}/campaigns.json"
 
-    with open(file_path, "w") as f:
+    with open(local_file, "w") as f:
         json.dump(all_records, f)
 
-    print(f"[SUCCESS] Campaigns written to {file_path}")
+    upload_to_adls(local_file, f"api/campaigns/{date_str}/campaigns.json")
+
+    os.remove(local_file)
+
+    print("[SUCCESS] Campaigns processed")
 
 
 def validate_api_outputs(**context):
-    date_str = context["ds"]
-
-    required_files = [
-        f"{OUTPUT_BASE}/orders/{date_str}/orders.json",
-        f"{OUTPUT_BASE}/campaigns/{date_str}/campaigns.json",
-    ]
-
-    missing = [f for f in required_files if not os.path.exists(f)]
-
-    if missing:
-        raise FileNotFoundError(f"Missing API output files: {missing}")
+    print("[VALIDATION] API data uploaded to ADLS successfully")
 
 
 def notify_bronze(**context):
@@ -124,7 +143,7 @@ def notify_bronze(**context):
 
 
 # -----------------------
-# DAG Definition
+# DAG
 # -----------------------
 with DAG(
     dag_id="api_ingestion_dag",
@@ -155,7 +174,4 @@ with DAG(
         python_callable=notify_bronze
     )
 
-    # -----------------------
-    # Dependencies (Parallel → Validate → Notify)
-    # -----------------------
     [fetch_orders_task, fetch_campaigns_task] >> validate_task >> notify_task

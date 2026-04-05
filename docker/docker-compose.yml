@@ -50,6 +50,13 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+
+      ADLS_ACCOUNT_NAME: ${ADLS_ACCOUNT_NAME}
+      ADLS_ACCOUNT_KEY: ${ADLS_ACCOUNT_KEY}
+      API_BASE_URL: http://api-simulator:8000
+      EVENT_BASE_URL: http://event-generator:9000
+      OUTPUT_BASE: /tmp/batch
+
     ports:
       - "8080:8080"
     command: webserver
@@ -74,6 +81,13 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+
+      ADLS_ACCOUNT_NAME: ${ADLS_ACCOUNT_NAME}
+      ADLS_ACCOUNT_KEY: ${ADLS_ACCOUNT_KEY}
+      API_BASE_URL: http://api-simulator:8000
+      EVENT_BASE_URL: http://event-generator:9000
+      OUTPUT_BASE: /tmp/batch
+
     command: scheduler  
     restart: on-failure
     volumes:
@@ -81,36 +95,44 @@ services:
       - ../pipelines:/opt/airflow/pipelines
     networks:
       - platform-network
+
   api-simulator:
-      build:
-        context: ./api-simulator
-      container_name: api-simulator
-      ports:
-        - "${API_PORT:-8000}:8000"
-      restart: on-failure
-      networks:
-        - platform-network
+    build:
+      context: ./api-simulator
+    container_name: api-simulator
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: on-failure
+    networks:
+      - platform-network
 
   event-generator:
-      build:
-        context: ./event-generator
-      container_name: event-generator
-      ports:
-        - "${EVENT_GENERATOR_PORT:-9000}:9000"
-      restart: on-failure
-      networks:
-        - platform-network
+    build:
+      context: ./event-generator
+    container_name: event-generator
+    ports:
+      - "${EVENT_GENERATOR_PORT:-9000}:9000"
+    restart: on-failure
+
+    environment:
+      - EVENTSTREAM_ORDERS_CONN=${EVENTSTREAM_ORDERS_CONN}
+      - EVENTSTREAM_CLICKSTREAM_CONN=${EVENTSTREAM_CLICKSTREAM_CONN}
+      - EVENTSTREAM_FOOTFALL_CONN=${EVENTSTREAM_FOOTFALL_CONN}
+
+    networks:
+      - platform-network
 
   batch-generator:
-      build:
-        context: ./batch-generator
-      container_name: batch-generator
-      environment:
-        - OUTPUT_BASE=/app/data/batch
-      volumes:
-        - ../data/batch:/app/data/batch
-      networks:
-        - platform-network
+    build:
+      context: ./batch-generator
+    container_name: batch-generator
+    environment:
+      - OUTPUT_BASE=/app/data/batch
+    volumes:
+      - ../data/batch:/app/data/batch
+    networks:
+      - platform-network
+
 networks:
   platform-network:
 
