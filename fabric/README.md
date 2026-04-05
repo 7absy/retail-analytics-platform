@@ -1,1 +1,2 @@
-# Fabric\nMicrosoft Fabric configuration, shortcuts, and semantic model definitions.
+# Fabric 
+## Microsoft Fabric configuration, shortcuts, and semantic model definitions.
