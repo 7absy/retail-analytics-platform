@@ -241,10 +241,5 @@ Cleaned, validated, and type-cast from Bronze. Includes quarantine logic to isol
 
 ---
 
-## Author
-
-**Mostafa Habasy** · [GitHub](https://github.com/7absy) · [LinkedIn](https://www.linkedin.com/in/mostafa-habasy)
-
----
 
 *Built to go deep on the modern Azure data stack — contributions and feedback welcome.*
