@@ -191,15 +191,18 @@ Load dashboards and connect to Fabric SQL Endpoint.
 
 ---
 
-## Roadmap
-
-* [x] Data ingestion pipelines
-* [x] Medallion architecture
-* [x] Real-time streaming
-* [x] Power BI dashboards
-* [ ] Data quality monitoring
-* [ ] CI/CD pipeline
-* [ ] dbt integration
+## Roadmap 
+- [x] Docker simulation layer (API + Event + Batch generators)
+- [x] Airflow DAGs (batch, API, event ingestion)
+- [x] ADLS Gen2 raw + curated zones
+- [x] Databricks medallion pipeline (Bronze → Silver → Gold)
+- [x] Microsoft Fabric Lakehouse + Eventstreams + KQL DB
+- [x] Power BI 4-page report
+- [x] Real-time dashboard
+- [ ] Data quality monitoring with Great Expectations
+- [ ] CI/CD pipeline with GitHub Actions
+- [ ] dbt integration for Gold layer transformations
+- [ ] Cost monitoring and alerting
 
 ---
 
