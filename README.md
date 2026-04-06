@@ -138,7 +138,6 @@ This starts:
 
 * API Simulator → http://localhost:8000
 * Event Generator → http://localhost:9000
-* Batch Generator
 * Airflow → http://localhost:8080
 
 ---
