@@ -1,0 +1,43 @@
+# Databricks notebook source
+# MAGIC %md # Bronze — order_events (JSON)
+
+# COMMAND ----------
+client_id     = dbutils.secrets.get("retail-analytics", "adls-client-id")
+tenant_id     = dbutils.secrets.get("retail-analytics", "adls-tenant-id")
+client_secret = dbutils.secrets.get("retail-analytics", "adls-client-secret")
+account_name  = dbutils.secrets.get("retail-analytics", "adls-account-name")
+
+spark.conf.set(f"fs.azure.account.auth.type.{account_name}.dfs.core.windows.net", "OAuth")
+spark.conf.set(f"fs.azure.account.oauth.provider.type.{account_name}.dfs.core.windows.net", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
+spark.conf.set(f"fs.azure.account.oauth2.client.id.{account_name}.dfs.core.windows.net", client_id)
+spark.conf.set(f"fs.azure.account.oauth2.client.secret.{account_name}.dfs.core.windows.net", client_secret)
+spark.conf.set(f"fs.azure.account.oauth2.client.endpoint.{account_name}.dfs.core.windows.net", f"https://login.microsoftonline.com/{tenant_id}/oauth2/token")
+
+# COMMAND ----------
+import datetime
+DATE_STR    = datetime.date.today().strftime("%Y-%m-%d")
+RAW_PATH    = f"abfss://raw@{account_name}.dfs.core.windows.net/events/order_events/{DATE_STR}/order_events.json"
+BRONZE_PATH = f"abfss://curated@{account_name}.dfs.core.windows.net/bronze/order_events"
+
+# COMMAND ----------
+from pyspark.sql.functions import current_timestamp, to_date
+
+df = spark.read.option("multiLine", "true").json(RAW_PATH)
+df = df.withColumn("_ingested_at", current_timestamp()) \
+       .withColumn("_ingestion_date", to_date(current_timestamp()))
+print(f"Raw row count: {df.count()}")
+df.printSchema()
+
+# COMMAND ----------
+from delta.tables import DeltaTable
+
+if DeltaTable.isDeltaTable(spark, BRONZE_PATH):
+    DeltaTable.forPath(spark, BRONZE_PATH).alias("target").merge(
+        df.alias("source"), "target.event_id = source.event_id"
+    ).whenNotMatchedInsertAll().execute()
+else:
+    df.write.format("delta").mode("overwrite").partitionBy("_ingestion_date").save(BRONZE_PATH)
+
+# COMMAND ----------
+count = spark.read.format("delta").load(BRONZE_PATH).count()
+print(f"bronze_order_events row count: {count}")
